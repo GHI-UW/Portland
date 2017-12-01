@@ -1,0 +1,89 @@
+# Integrated Transport and Health Impacts Model
+
+## R Package _ITHIM_
+
+```{r libs, eval = TRUE, echo = FALSE, results = "hide", warning = FALSE, error = FALSE, message = FALSE}
+#options(repos='http://cran.rstudio.com/')
+#install.packages(c("ggplot2","dplyr","openssl","httr", "git2r", "devtools", "roxygen2"))
+#library("ggplot2")
+#library("devtools")
+#library("reshape2")
+#library("plyr")
+#library("dplyr")
+library("devtools")
+install_github("ITHIM/ITHIM", ref="devel")
+library("ITHIM")
+fig.width <- 6 # inches
+phi <- (1+sqrt(5))/2 # the golden ratio ;)
+```
+
+```{r ITHIMObjs, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
+ITHIM.baseline <- createITHIM( activeTransportFile="~/ITHIM/inst/activeTravelOHAS.csv", GBDFile = "~/younkin2017/data/gbd_Manuscript_2011-2015.csv", FFile = "~/ITHIM/inst/F.portland.11_21_2017.csv")
+
+muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds")
+param.nonTravel <- readRDS(file = "~/younkin2017/data/parameters.LA.untransformed.ungrouped.rds")
+
+Rwt <- ITHIM.baseline@parameters@Rwt
+Rwt[1,] <- c(0.43,0.35)
+Rwt[2,] <- c(0.49,0.48)
+
+Rct <- ITHIM.baseline@parameters@Rct
+Rct[1,] <- c(0.29,0.12)
+Rct[2,] <- c(1.32,0.83)
+Rct[8,] <- c(0.1,0.1)
+
+
+ITHIM.baseline <- update(ITHIM.baseline, list(
+                                             muwt = 47.21,
+                                             Rwt = Rwt,
+                                             muct = 15.07,
+                                             Rct = Rct,
+                                             cv = 1.65,
+                                             # muNonTravel = param.nonTravel$meanMETs,
+                                             muNonTravel = 15, # 40 agrees better with the workbook values...
+                                             muNonTravelMatrix = muNonTravelMatrix,
+                                             cvNonTravel = param.nonTravel$meanMETs/param.nonTravel$sdMETs,
+                                             quantiles = c(0.1,0.3,0.5,0.7,0.9)
+                                             ))
+
+ITHIM.2027.constrained <- update(ITHIM.baseline, list(muwt = 44.91, muct = 17.82))
+ITHIM.2040.nobuild <- update(ITHIM.baseline, list(muwt = 46.21, muct = 17.04))
+ITHIM.2040.constrained <- update(ITHIM.baseline, list(muwt = 46.41, muct = 18.85))
+ITHIM.2040.strategic <- update(ITHIM.baseline, list(muwt = 46.37, muct = 18.57))
+```
+
+```{r results, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, fig.width = 15}
+
+results <- data.frame()
+
+for( bur in c("daly","yll", "yld", "deaths") ){
+    for(dis in c("BreastCancer", "ColonCancer","Depression", "Dementia", "Diabetes","CVD")){
+        percent <- 100*deltaBurden(ITHIM.baseline, ITHIM.2027.constrained, bur = bur, dis = dis, type = "percent")
+        results <- rbind(results, data.frame(vision = "2027.constrained", bur,dis,percent))
+        }
+    }
+
+for( bur in c("daly","yll", "yld", "deaths") ){
+    for(dis in c("BreastCancer", "ColonCancer","Depression", "Dementia", "Diabetes","CVD")){
+        percent <- 100*deltaBurden(ITHIM.baseline, ITHIM.2040.nobuild, bur = bur, dis = dis, type = "percent")
+        results <- rbind(results, data.frame(vision = "2040.nobuild", bur,dis,percent))
+        }
+    }
+
+for( bur in c("daly","yll", "yld", "deaths") ){
+    for(dis in c("BreastCancer", "ColonCancer","Depression", "Dementia", "Diabetes","CVD")){
+        percent <- 100*deltaBurden(ITHIM.baseline, ITHIM.2040.constrained, bur = bur, dis = dis, type = "percent")
+        results <- rbind(results, data.frame(vision = "2040.constrained", bur,dis,percent))
+        }
+    }
+
+for( bur in c("daly","yll", "yld", "deaths") ){
+    for(dis in c("BreastCancer", "ColonCancer","Depression", "Dementia", "Diabetes","CVD")){
+        percent <- 100*deltaBurden(ITHIM.baseline, ITHIM.2040.strategic, bur = bur, dis = dis, type = "percent")
+        results <- rbind(results, data.frame(vision = "2040.strategic", bur,dis,percent))
+        }
+    }
+
+ggplot(results, aes(x = vision, y = -percent, fill = bur)) + geom_bar(stat = "identity", position = "dodge")  + facet_grid(. ~ dis) + theme_bw()  + labs(x = "", y = "Percent Disease Burden Averted", fill = "Burden Type") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
