@@ -10,15 +10,20 @@
 #library("reshape2")
 #library("plyr")
 #library("dplyr")
-library("devtools")
-install_github("ITHIM/ITHIM", ref="devel")
-library("ITHIM")
 fig.width <- 6 # inches
 phi <- (1+sqrt(5))/2 # the golden ratio ;)
 ```
 
 ```{r ITHIMObjs, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
-ITHIM.baseline <- createITHIM( activeTransportFile="~/ITHIM/inst/activeTravelOHAS.csv", GBDFile = "~/younkin2017/data/gbd_Manuscript_2011-2015.csv", FFile = "~/ITHIM/inst/F.portland.11_21_2017.csv")
+library("devtools")
+install_github("ITHIM/ITHIM", ref="devel")
+library("ITHIM")
+
+activeTransportFile <- system.file("activeTravelOHAS.csv", package = "ITHIM")
+GBDFile <- system.file("gbd_Manuscript_2011-2015.csv", package = "ITHIM")
+FFile <- system.file("F.portland.11_21_2017.csv", package = "ITHIM")
+
+ITHIM.baseline <- createITHIM( activeTransportFile = activeTransportFile, GBDFile = GBDFile, FFile = FFile)
 
 muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds")
 param.nonTravel <- readRDS(file = "~/younkin2017/data/parameters.LA.untransformed.ungrouped.rds")
@@ -50,40 +55,10 @@ ITHIM.2027.constrained <- update(ITHIM.baseline, list(muwt = 44.91, muct = 17.82
 ITHIM.2040.nobuild <- update(ITHIM.baseline, list(muwt = 46.21, muct = 17.04))
 ITHIM.2040.constrained <- update(ITHIM.baseline, list(muwt = 46.41, muct = 18.85))
 ITHIM.2040.strategic <- update(ITHIM.baseline, list(muwt = 46.37, muct = 18.57))
+
+ITHIM.scenario.list <-     list( ITHIM.2027.constrained , ITHIM.2040.nobuild , ITHIM.2040.constrained,  ITHIM.2040.strategic)
+names(ITHIM.scenario.list) <- c("ITHIM.2027.constrained","ITHIM.2040.nobuild","ITHIM.2040.constrained","ITHIM.2040.strategic")
+
+(results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list))
+write.csv(results.df, file = "~/Portland/results.csv", quote = FALSE, row.names = FALSE)
 ```
-
-```{r results, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, fig.width = 15}
-
-results <- data.frame()
-
-for( bur in c("daly","yll", "yld", "deaths") ){
-    for(dis in c("BreastCancer", "ColonCancer","Depression", "Dementia", "Diabetes","CVD")){
-        percent <- 100*deltaBurden(ITHIM.baseline, ITHIM.2027.constrained, bur = bur, dis = dis, type = "percent")
-        results <- rbind(results, data.frame(vision = "2027.constrained", bur,dis,percent))
-        }
-    }
-
-for( bur in c("daly","yll", "yld", "deaths") ){
-    for(dis in c("BreastCancer", "ColonCancer","Depression", "Dementia", "Diabetes","CVD")){
-        percent <- 100*deltaBurden(ITHIM.baseline, ITHIM.2040.nobuild, bur = bur, dis = dis, type = "percent")
-        results <- rbind(results, data.frame(vision = "2040.nobuild", bur,dis,percent))
-        }
-    }
-
-for( bur in c("daly","yll", "yld", "deaths") ){
-    for(dis in c("BreastCancer", "ColonCancer","Depression", "Dementia", "Diabetes","CVD")){
-        percent <- 100*deltaBurden(ITHIM.baseline, ITHIM.2040.constrained, bur = bur, dis = dis, type = "percent")
-        results <- rbind(results, data.frame(vision = "2040.constrained", bur,dis,percent))
-        }
-    }
-
-for( bur in c("daly","yll", "yld", "deaths") ){
-    for(dis in c("BreastCancer", "ColonCancer","Depression", "Dementia", "Diabetes","CVD")){
-        percent <- 100*deltaBurden(ITHIM.baseline, ITHIM.2040.strategic, bur = bur, dis = dis, type = "percent")
-        results <- rbind(results, data.frame(vision = "2040.strategic", bur,dis,percent))
-        }
-    }
-
-ggplot(results, aes(x = vision, y = -percent, fill = bur)) + geom_bar(stat = "identity", position = "dodge")  + facet_grid(. ~ dis) + theme_bw()  + labs(x = "", y = "Percent Disease Burden Averted", fill = "Burden Type") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
