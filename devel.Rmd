@@ -1,7 +1,5 @@
-# Integrated Transport and Health Impacts Model
-
-## R Package _ITHIM_
-
+# Portland Metropolitan Area
+## ITHIM-R Implementation (December, 2017)
 ```{r libs, eval = TRUE, echo = FALSE, results = "hide", warning = FALSE, error = FALSE, message = FALSE}
 #options(repos='http://cran.rstudio.com/')
 #install.packages(c("ggplot2","dplyr","openssl","httr", "git2r", "devtools", "roxygen2"))
@@ -10,24 +8,48 @@
 #library("reshape2")
 #library("plyr")
 #library("dplyr")
+options(width = 200)
 fig.width <- 6 # inches
 phi <- (1+sqrt(5))/2 # the golden ratio ;)
 ```
+For a comparison to the EXCEL workbook implementation of ITHIM we use
+the `devel` branch of the _ITHIM_ repository maintained in the ITHIM
+organization on Github.
 
-```{r ITHIMObjs, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
+```{r ITHIMBasline, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 library("devtools")
 install_github("ITHIM/ITHIM", ref="devel")
 library("ITHIM")
+```
 
+### Create an ITHIM object
+
+Next we use three files to create an ITHIM R object.
+
+```{r InputFiles, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 activeTransportFile <- system.file("activeTravelOHAS.csv", package = "ITHIM")
 GBDFile <- system.file("gbd_Manuscript_2011-2015.csv", package = "ITHIM")
 FFile <- system.file("F.portland.11_21_2017.csv", package = "ITHIM")
 
 ITHIM.baseline <- createITHIM( activeTransportFile = activeTransportFile, GBDFile = GBDFile, FFile = FFile)
+```
+We also nee parameters that describe the leisure activity of the
+population.  We load to R binaries created for _Younkin et al._
+(2017).
 
-muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds")
-param.nonTravel <- readRDS(file = "~/younkin2017/data/parameters.LA.untransformed.ungrouped.rds")
+```{r ExtraParams, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
+(muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds"))
+(param.nonTravel <- readRDS(file = "~/younkin2017/data/parameters.LA.untransformed.ungrouped.rds"))
+```
 
+### Adjustment to Walk/Bike Relative Means
+
+Younkin et al. excluded the first two age classes and so we insert
+these values found in the EXCEL workbook.  An adjustment is made to
+ageClass 8 cycling values as well because the values in the data are
+zero.
+
+```{r adjustments, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 Rwt <- ITHIM.baseline@parameters@Rwt
 Rwt[1,] <- c(0.43,0.35)
 Rwt[2,] <- c(0.49,0.48)
@@ -36,29 +58,96 @@ Rct <- ITHIM.baseline@parameters@Rct
 Rct[1,] <- c(0.29,0.12)
 Rct[2,] <- c(1.32,0.83)
 Rct[8,] <- c(0.1,0.1)
+```
+
+### Adjustment to Leisure Activity Relative Means
 
 
+### Update to Baseline Object
+Now we update the ITHIM object with the mean travel times provided by
+Metro, along with: _cv_ (coefficient of variation of active transport
+time) and _muNonTravel_ (overall mean leisure activity).
+
+```{r ITHIMObjs, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 ITHIM.baseline <- update(ITHIM.baseline, list(
                                              muwt = 47.21,
                                              Rwt = Rwt,
                                              muct = 15.07,
                                              Rct = Rct,
                                              cv = 1.65,
-                                             # muNonTravel = param.nonTravel$meanMETs,
-                                             muNonTravel = 15, # 40 agrees better with the workbook values...
+                                             muNonTravel = param.nonTravel$meanMETs,
                                              muNonTravelMatrix = muNonTravelMatrix,
                                              cvNonTravel = param.nonTravel$meanMETs/param.nonTravel$sdMETs,
                                              quantiles = c(0.1,0.3,0.5,0.7,0.9)
                                              ))
+```
+### Scenarios
+Now we construct four scenarios by updating the mean walk and cycle
+times.
 
+```{r Scenarios, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 ITHIM.2027.constrained <- update(ITHIM.baseline, list(muwt = 44.91, muct = 17.82))
-ITHIM.2040.nobuild <- update(ITHIM.baseline, list(muwt = 46.21, muct = 17.04))
+ITHIM.2040.nobuild <-     update(ITHIM.baseline, list(muwt = 46.21, muct = 17.04))
 ITHIM.2040.constrained <- update(ITHIM.baseline, list(muwt = 46.41, muct = 18.85))
-ITHIM.2040.strategic <- update(ITHIM.baseline, list(muwt = 46.37, muct = 18.57))
+ITHIM.2040.strategic <-   update(ITHIM.baseline, list(muwt = 46.37, muct = 18.57))
 
-ITHIM.scenario.list <-     list( ITHIM.2027.constrained , ITHIM.2040.nobuild , ITHIM.2040.constrained,  ITHIM.2040.strategic)
-names(ITHIM.scenario.list) <- c("ITHIM.2027.constrained","ITHIM.2040.nobuild","ITHIM.2040.constrained","ITHIM.2040.strategic")
+ITHIM.scenario.list <- list(
+    ITHIM.2027.constrained = ITHIM.2027.constrained,
+    ITHIM.2040.nobuild = ITHIM.2040.nobuild,
+    ITHIM.2040.constrained = ITHIM.2040.constrained,
+    ITHIM.2040.strategic = ITHIM.2040.strategic
+)
+```
+### Percent Disease Burden Reduction
 
-(results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list))
+To tabulate the percent change in disease burden across all scenarios
+we use the function _tabulateResults_ and output the results to _results.csv_
+
+```{r results, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=250)}
+results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
 write.csv(results.df, file = "~/Portland/results.csv", quote = FALSE, row.names = FALSE)
+head(results.df)
+```
+
+### Leisure Activity Means
+
+What do things look like if we set the relative leisure acticity mean
+matrix to 1 and the mean to 1?
+
+```{r updateLA, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=250)}
+One <- matrix(1, ncol = 2, nrow = 8)
+muNonTravel <- 1
+ITHIM.baseline <- update(ITHIM.baseline, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+ITHIM.2027.constrained <- update(ITHIM.2027.constrained, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+ITHIM.2040.nobuild <- update(ITHIM.2040.nobuild, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+ITHIM.2040.constrained <- update(ITHIM.2040.constrained, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+ITHIM.2040.strategic <- update(ITHIM.2040.strategic, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+
+ITHIM.scenario.list <- list(
+    ITHIM.2027.constrained = ITHIM.2027.constrained,
+    ITHIM.2040.nobuild = ITHIM.2040.nobuild,
+    ITHIM.2040.constrained = ITHIM.2040.constrained,
+    ITHIM.2040.strategic = ITHIM.2040.strategic
+)
+results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
+head(results.df)
+```
+What about setting the mean to 10?
+
+```{r updateLA2, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=200)}
+muNonTravel <- 10
+ITHIM.baseline <- update(ITHIM.baseline, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+ITHIM.2027.constrained <- update(ITHIM.2027.constrained, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+ITHIM.2040.nobuild <- update(ITHIM.2040.nobuild, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+ITHIM.2040.constrained <- update(ITHIM.2040.constrained, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+ITHIM.2040.strategic <- update(ITHIM.2040.strategic, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+
+ITHIM.scenario.list <- list(
+    ITHIM.2027.constrained = ITHIM.2027.constrained,
+    ITHIM.2040.nobuild = ITHIM.2040.nobuild,
+    ITHIM.2040.constrained = ITHIM.2040.constrained,
+    ITHIM.2040.strategic = ITHIM.2040.strategic
+)
+results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
+head(results.df)
 ```
