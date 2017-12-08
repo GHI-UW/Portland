@@ -8,7 +8,7 @@
 #library("reshape2")
 #library("plyr")
 #library("dplyr")
-options(width = 200)
+options(width = 110)
 fig.width <- 6 # inches
 phi <- (1+sqrt(5))/2 # the golden ratio ;)
 ```
@@ -38,13 +38,13 @@ population.  We load to R binaries created for _Younkin et al._
 (2017).
 
 ```{r ExtraParams, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
-(muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds"))
+muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds")
 (param.nonTravel <- readRDS(file = "~/younkin2017/data/parameters.LA.untransformed.ungrouped.rds"))
 ```
 
 ### Adjustment to Walk/Bike Relative Means
 
-Younkin et al. excluded the first two age classes and so we insert
+In the OHAS study we excluded the first two age classes and so we insert
 these values found in the EXCEL workbook.  An adjustment is made to
 ageClass 8 cycling values as well because the values in the data are
 zero.
@@ -77,7 +77,7 @@ ITHIM.baseline <- update(ITHIM.baseline, list(
                                              cv = 1.65,
                                              muNonTravel = param.nonTravel$meanMETs,
                                              muNonTravelMatrix = muNonTravelMatrix,
-                                             cvNonTravel = param.nonTravel$meanMETs/param.nonTravel$sdMETs,
+                                             cvNonTravel = param.nonTravel$sdMETs/param.nonTravel$meanMETs,
                                              quantiles = c(0.1,0.3,0.5,0.7,0.9)
                                              ))
 ```
@@ -111,17 +111,22 @@ head(results.df)
 
 ### Leisure Activity Means
 
-What do things look like if we set the relative leisure acticity mean
-matrix to 1 and the mean to 1?
+The values in the workbook for leisure activy are relatively high.
+The values range from 44-65 MET-hrs./week which corresponds to 11-16
+hrs./week of moderate physical activity for leisure.
+
+Our analyis of the ATUS data yielded an overall mean of around 9
+MET-hrs./week, or just over 2 hrs./week of moderate activity.
+
+Let's set nonTravel activity to zero for comparison with the workbook.
 
 ```{r updateLA, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=250)}
-One <- matrix(1, ncol = 2, nrow = 8)
-muNonTravel <- 1
-ITHIM.baseline <- update(ITHIM.baseline, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
-ITHIM.2027.constrained <- update(ITHIM.2027.constrained, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
-ITHIM.2040.nobuild <- update(ITHIM.2040.nobuild, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
-ITHIM.2040.constrained <- update(ITHIM.2040.constrained, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
-ITHIM.2040.strategic <- update(ITHIM.2040.strategic, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+muNonTravel <- 0
+ITHIM.baseline <- update(ITHIM.baseline, list(muNonTravel = muNonTravel))
+ITHIM.2027.constrained <- update(ITHIM.2027.constrained, list(muNonTravel = muNonTravel))
+ITHIM.2040.nobuild <- update(ITHIM.2040.nobuild, list(muNonTravel = muNonTravel))
+ITHIM.2040.constrained <- update(ITHIM.2040.constrained, list(muNonTravel = muNonTravel))
+ITHIM.2040.strategic <- update(ITHIM.2040.strategic, list(muNonTravel = muNonTravel))
 
 ITHIM.scenario.list <- list(
     ITHIM.2027.constrained = ITHIM.2027.constrained,
@@ -130,24 +135,13 @@ ITHIM.scenario.list <- list(
     ITHIM.2040.strategic = ITHIM.2040.strategic
 )
 results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
-head(results.df)
+ITHIM:::getAF(ITHIM.baseline, ITHIM.2027.constrained)$Dementia
 ```
-What about setting the mean to 10?
 
-```{r updateLA2, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=200)}
-muNonTravel <- 10
-ITHIM.baseline <- update(ITHIM.baseline, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
-ITHIM.2027.constrained <- update(ITHIM.2027.constrained, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
-ITHIM.2040.nobuild <- update(ITHIM.2040.nobuild, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
-ITHIM.2040.constrained <- update(ITHIM.2040.constrained, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
-ITHIM.2040.strategic <- update(ITHIM.2040.strategic, list(muNonTravelMatrix = One, muNonTravel = muNonTravel))
+Sources of discrepancies include:  different Rwt and Rct, different
+MET value for walk, ceiling function use in EXCEL workbook.
 
-ITHIM.scenario.list <- list(
-    ITHIM.2027.constrained = ITHIM.2027.constrained,
-    ITHIM.2040.nobuild = ITHIM.2040.nobuild,
-    ITHIM.2040.constrained = ITHIM.2040.constrained,
-    ITHIM.2040.strategic = ITHIM.2040.strategic
-)
-results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
-head(results.df)
+#### Session Info
+```{r sessionInfo, message = TRUE, eval = TRUE, warning = TRUE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=100)}
+sessionInfo()
 ```
