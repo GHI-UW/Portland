@@ -18,7 +18,7 @@ organization on Github.
 
 ```{r ITHIMBasline, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 library("devtools")
-install_github("ITHIM/ITHIM", ref="devel")
+install_github("ITHIM/ITHIM", ref="excel")
 library("ITHIM")
 ```
 
@@ -28,7 +28,7 @@ Next we use three files to create an ITHIM R object.
 
 ```{r InputFiles, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 activeTransportFile <- system.file("activeTravelOHAS.csv", package = "ITHIM")
-GBDFile <- system.file("gbd_Manuscript_2011-2015.csv", package = "ITHIM")
+GBDFile <- "~/Portland/portland-burden-sgy-reformatted.csv" #system.file("gbd_Manuscript_2011-2015.csv", package = "ITHIM")
 FFile <- system.file("F.portland.11_21_2017.csv", package = "ITHIM")
 
 ITHIM.baseline <- createITHIM( activeTransportFile = activeTransportFile, GBDFile = GBDFile, FFile = FFile)
@@ -51,12 +51,12 @@ zero.
 
 ```{r adjustments, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 Rwt <- ITHIM.baseline@parameters@Rwt
-Rwt[1,] <- c(0.43,0.35)
-Rwt[2,] <- c(0.49,0.48)
+Rwt[1,] <- c(0.4305,0.3471)
+Rwt[2,] <- c(0.4934,0.4814)
 
 Rct <- ITHIM.baseline@parameters@Rct
-Rct[1,] <- c(0.29,0.12)
-Rct[2,] <- c(1.32,0.83)
+Rct[1,] <- c(0.2935,0.1231)
+Rct[2,] <- c(1.3194,0.8278)
 Rct[8,] <- c(0.1,0.1)
 ```
 
@@ -70,26 +70,29 @@ time) and _muNonTravel_ (overall mean leisure activity).
 
 ```{r ITHIMObjs, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 ITHIM.baseline <- update(ITHIM.baseline, list(
-                                             muwt = 47.21,
+                                             muwt = 47.2061,
                                              Rwt = Rwt,
-                                             muct = 15.07,
+                                             muct = 15.0722,
                                              Rct = Rct,
-                                             cv = 1.65,
+                                             cv = 1.6483,
                                              muNonTravel = param.nonTravel$meanMETs,
                                              muNonTravelMatrix = muNonTravelMatrix,
                                              cvNonTravel = param.nonTravel$sdMETs/param.nonTravel$meanMETs,
-                                             quantiles = c(0.1,0.3,0.5,0.7,0.9)
+                                             quantiles = c(0.1,0.3,0.5,0.7,0.9),
+                                             EXCEL = TRUE
                                              ))
 ```
+
+
 ### Scenarios
 Now we construct four scenarios by updating the mean walk and cycle
 times.
 
 ```{r Scenarios, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
-ITHIM.2027.constrained <- update(ITHIM.baseline, list(muwt = 44.91, muct = 17.82))
-ITHIM.2040.nobuild <-     update(ITHIM.baseline, list(muwt = 46.21, muct = 17.04))
-ITHIM.2040.constrained <- update(ITHIM.baseline, list(muwt = 46.41, muct = 18.85))
-ITHIM.2040.strategic <-   update(ITHIM.baseline, list(muwt = 46.37, muct = 18.57))
+ITHIM.2040.nobuild <-     update(ITHIM.baseline, list(muwt = 44.91, muct = 17.82, cv = 1.6475))
+ITHIM.2027.constrained <- update(ITHIM.baseline, list(muwt = 46.21, muct = 17.04, cv = 1.6467))
+ITHIM.2040.constrained <- update(ITHIM.baseline, list(muwt = 46.41, muct = 18.85, cv = 1.6437))
+ITHIM.2040.strategic <-   update(ITHIM.baseline, list(muwt = 46.37, muct = 18.57, cv = 1.6442))
 
 ITHIM.scenario.list <- list(
     ITHIM.2027.constrained = ITHIM.2027.constrained,
@@ -97,6 +100,8 @@ ITHIM.scenario.list <- list(
     ITHIM.2040.constrained = ITHIM.2040.constrained,
     ITHIM.2040.strategic = ITHIM.2040.strategic
 )
+
+round(100*getAF(ITHIM.baseline, ITHIM.2040.nobuild)$BreastCancer,2)
 ```
 ### Percent Disease Burden Reduction
 
@@ -108,6 +113,23 @@ results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
 write.csv(results.df, file = "~/Portland/results.csv", quote = FALSE, row.names = FALSE)
 head(results.df)
 ```
+
+
+
+### Curves
+```{r test, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
+#muwt <- 44.91
+AF <- c()
+deltaB <- c()
+muwtVec <- seq(1,120,length.out = 50)
+for( muwt in muwtVec){
+    ITHIM.test <- update(ITHIM.baseline, list(muwt = muwt, muct = 17.82, cv = 1.6475, EXCEL = TRUE))
+    AF <- c(AF,getAF(ITHIM.baseline, ITHIM.test)$BreastCancer)
+    deltaB <- c(deltaB, deltaBurden(ITHIM.baseline, ITHIM.test, bur = "daly", dis = "all"))
+}
+```
+
+
 
 ### Leisure Activity Means
 
@@ -134,8 +156,9 @@ ITHIM.scenario.list <- list(
     ITHIM.2040.constrained = ITHIM.2040.constrained,
     ITHIM.2040.strategic = ITHIM.2040.strategic
 )
-results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
-ITHIM:::getAF(ITHIM.baseline, ITHIM.2027.constrained)$Dementia
+
+#results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
+
 ```
 
 Sources of discrepancies include:  different Rwt and Rct, different
