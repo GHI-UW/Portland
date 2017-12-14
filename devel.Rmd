@@ -28,16 +28,14 @@ Next we use three files to create an ITHIM R object.
 
 ```{r InputFiles, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
 activeTransportFile <- system.file("activeTravelOHAS.csv", package = "ITHIM")
-GBDFile <- "~/Portland/portland-burden-sgy-reformatted.csv" #system.file("gbd_Manuscript_2011-2015.csv", package = "ITHIM")
+GBDFile <- system.file("portland-burden-sgy-reformatted.csv", package = "ITHIM")
 FFile <- system.file("F.portland.11_21_2017.csv", package = "ITHIM")
 
 ITHIM.baseline <- createITHIM( activeTransportFile = activeTransportFile, GBDFile = GBDFile, FFile = FFile)
 ```
-We also nee parameters that describe the leisure activity of the
-population.  We load to R binaries created for _Younkin et al._
-(2017).
 
-```{r ExtraParams, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
+
+```{r ExtraParams, message = FALSE, eval = FALSE, warning = FALSE, error = TRUE, echo = FALSE}
 muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds")
 (param.nonTravel <- readRDS(file = "~/younkin2017/data/parameters.LA.untransformed.ungrouped.rds"))
 ```
@@ -60,9 +58,6 @@ Rct[2,] <- c(1.3194,0.8278)
 Rct[8,] <- c(0.1,0.1)
 ```
 
-### Adjustment to Leisure Activity Relative Means
-
-
 ### Update to Baseline Object
 Now we update the ITHIM object with the mean travel times provided by
 Metro, along with: _cv_ (coefficient of variation of active transport
@@ -75,9 +70,6 @@ ITHIM.baseline <- update(ITHIM.baseline, list(
                                              muct = 15.0722,
                                              Rct = Rct,
                                              cv = 1.6483,
-                                             muNonTravel = param.nonTravel$meanMETs,
-                                             muNonTravelMatrix = muNonTravelMatrix,
-                                             cvNonTravel = param.nonTravel$sdMETs/param.nonTravel$meanMETs,
                                              quantiles = c(0.1,0.3,0.5,0.7,0.9),
                                              EXCEL = TRUE
                                              ))
@@ -100,71 +92,33 @@ ITHIM.scenario.list <- list(
     ITHIM.2040.constrained = ITHIM.2040.constrained,
     ITHIM.2040.strategic = ITHIM.2040.strategic
 )
-
-round(100*getAF(ITHIM.baseline, ITHIM.2040.nobuild)$BreastCancer,2)
 ```
 ### Percent Disease Burden Reduction
 
 To tabulate the percent change in disease burden across all scenarios
-we use the function _tabulateResults_ and output the results to _results.csv_
+we use the function _superTabulate_ and output the results to _results.csv_
 
 ```{r results, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=250)}
-results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
-write.csv(results.df, file = "~/Portland/results.csv", quote = FALSE, row.names = FALSE)
+results.df <- superTabulate(ITHIM.baseline, ITHIM.scenario.list)
+write.csv(results.df, file = "./results.csv", quote = FALSE, row.names = FALSE)
 head(results.df)
 ```
 
+#### Session Info
+```{r sessionInfo, message = TRUE, eval = TRUE, warning = TRUE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=100)}
+sessionInfo()
+```
 
-
-### Curves
-```{r test, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
+```{r test, message = FALSE, eval = FALSE, warning = FALSE, error = TRUE, echo = FALSE}
 #muwt <- 44.91
 AF <- c()
 deltaB <- c()
 muwtVec <- seq(1,120,length.out = 50)
 for( muwt in muwtVec){
-    ITHIM.test <- update(ITHIM.baseline, list(muwt = muwt, muct = 17.82, cv = 1.6475, EXCEL = TRUE))
-    AF <- c(AF,getAF(ITHIM.baseline, ITHIM.test)$BreastCancer)
-    deltaB <- c(deltaB, deltaBurden(ITHIM.baseline, ITHIM.test, bur = "daly", dis = "all"))
+    for( muct in 1/3*muwtVec){
+        ITHIM.test <- update(ITHIM.baseline, list(muwt = muwt, muct = muct, cv = 1.6475, EXCEL = TRUE))
+        AF <- c(AF,getAF(ITHIM.baseline, ITHIM.test)$BreastCancer)
+        deltaB <- c(deltaB, deltaBurden(ITHIM.baseline, ITHIM.test, bur = "daly", dis = "all"))
+    }
 }
-```
-
-
-
-### Leisure Activity Means
-
-The values in the workbook for leisure activy are relatively high.
-The values range from 44-65 MET-hrs./week which corresponds to 11-16
-hrs./week of moderate physical activity for leisure.
-
-Our analyis of the ATUS data yielded an overall mean of around 9
-MET-hrs./week, or just over 2 hrs./week of moderate activity.
-
-Let's set nonTravel activity to zero for comparison with the workbook.
-
-```{r updateLA, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=250)}
-muNonTravel <- 0
-ITHIM.baseline <- update(ITHIM.baseline, list(muNonTravel = muNonTravel))
-ITHIM.2027.constrained <- update(ITHIM.2027.constrained, list(muNonTravel = muNonTravel))
-ITHIM.2040.nobuild <- update(ITHIM.2040.nobuild, list(muNonTravel = muNonTravel))
-ITHIM.2040.constrained <- update(ITHIM.2040.constrained, list(muNonTravel = muNonTravel))
-ITHIM.2040.strategic <- update(ITHIM.2040.strategic, list(muNonTravel = muNonTravel))
-
-ITHIM.scenario.list <- list(
-    ITHIM.2027.constrained = ITHIM.2027.constrained,
-    ITHIM.2040.nobuild = ITHIM.2040.nobuild,
-    ITHIM.2040.constrained = ITHIM.2040.constrained,
-    ITHIM.2040.strategic = ITHIM.2040.strategic
-)
-
-#results.df <- tabulateResults(ITHIM.baseline, ITHIM.scenario.list)
-
-```
-
-Sources of discrepancies include:  different Rwt and Rct, different
-MET value for walk, ceiling function use in EXCEL workbook.
-
-#### Session Info
-```{r sessionInfo, message = TRUE, eval = TRUE, warning = TRUE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=100)}
-sessionInfo()
 ```
