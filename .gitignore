@@ -1,0 +1,5 @@
+*.xlsx
+*.html
+figure/
+.DS_Store
+.Rhistory
