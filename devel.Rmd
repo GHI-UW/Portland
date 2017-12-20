@@ -34,12 +34,6 @@ FFile <- system.file("F.portland.11_21_2017.csv", package = "ITHIM")
 ITHIM.baseline <- createITHIM( activeTransportFile = activeTransportFile, GBDFile = GBDFile, FFile = FFile)
 ```
 
-
-```{r ExtraParams, message = FALSE, eval = FALSE, warning = FALSE, error = TRUE, echo = FALSE}
-muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds")
-(param.nonTravel <- readRDS(file = "~/younkin2017/data/parameters.LA.untransformed.ungrouped.rds"))
-```
-
 ### Adjustment to Walk/Bike Relative Means
 
 In the OHAS study we excluded the first two age classes and so we insert
@@ -104,21 +98,38 @@ write.csv(results.df, file = "./results.csv", quote = FALSE, row.names = FALSE)
 head(results.df)
 ```
 
+### Estimate the slope of delta burden vs. cycling time
+
+```{r test, message = FALSE, eval = TRUE, warning = FALSE, error = TRUE, echo = TRUE}
+results <- data.frame()
+AF <- c()
+deltaB <- c()
+muctVec <- seq(getMeans(ITHIM.baseline)$cycle,120,length.out = 25)
+muwtVec <- getMeans(ITHIM.baseline)$walk
+
+for( muwt in muwtVec){
+    for( muct in muctVec){
+        ITHIM.test <- update(ITHIM.baseline, list(muwt = muwt, muct = muct, EXCEL = TRUE))
+        deltaB <- deltaBurden(ITHIM.baseline, ITHIM.test, bur = "daly", dis = "all")
+        subresults <- data.frame( muwt = muwt, muct = muct, deltaB = deltaB )
+        results <- rbind(results, subresults)
+    }
+}
+
+slope <- lm(deltaB ~ muct, data = results)$coeff["muct"]
+```
+
+We avert `r -round(slope,1)` DALYs per minute increase in cycling mean.
+
 #### Session Info
 ```{r sessionInfo, message = TRUE, eval = TRUE, warning = TRUE, error = TRUE, echo = TRUE, tidy.opts=list(width.cutoff=100)}
 sessionInfo()
 ```
 
-```{r test, message = FALSE, eval = FALSE, warning = FALSE, error = TRUE, echo = FALSE}
-#muwt <- 44.91
-AF <- c()
-deltaB <- c()
-muwtVec <- seq(1,120,length.out = 50)
-for( muwt in muwtVec){
-    for( muct in 1/3*muwtVec){
-        ITHIM.test <- update(ITHIM.baseline, list(muwt = muwt, muct = muct, cv = 1.6475, EXCEL = TRUE))
-        AF <- c(AF,getAF(ITHIM.baseline, ITHIM.test)$BreastCancer)
-        deltaB <- c(deltaB, deltaBurden(ITHIM.baseline, ITHIM.test, bur = "daly", dis = "all"))
-    }
-}
+
+
+
+```{r ExtraParams, message = FALSE, eval = FALSE, warning = FALSE, error = TRUE, echo = FALSE}
+muNonTravelMatrix <- readRDS(file = "~/younkin2017/data/muNonTravelMatrix.portland.rds")
+(param.nonTravel <- readRDS(file = "~/younkin2017/data/parameters.LA.untransformed.ungrouped.rds"))
 ```
