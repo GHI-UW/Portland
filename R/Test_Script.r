@@ -60,21 +60,3 @@ See _Health Summary_ worksheet cells _P33_-_P40_ for comparison.
 Please be sure that the scenario _ITHIM.2040.strategic_ is selected on
 the _user page_ worksheet.  The values returned by _superTabulate_ are
 absoulte counts (not percentages).
-
-## May, 2018
-
-```{r TA, echo = TRUE}
-#OHAS.df <- readRDS(file = "~/Bullitt/data/OHAS/OHAS.df.rds")
-
-n.df <- inner_join(OHAS.list$PER,OHAS.list$HH,by = "SAMPN") %>% filter(!is.na(COUNTYNAME)) %>% select(SAMPN, COUNTYNAME) %>% group_by(COUNTYNAME) %>% summarise(n = n())
-
-TA.df <- OHAS.df %>% group_by(COUNTYNAME, SAMPN, PERNO, MODE ) %>% select(COUNTYNAME, SAMPN, PERNO, PNAME, MODE, TRPDUR) %>% summarise(T = sum(TRPDUR)) %>% ungroup() %>% spread(MODE, T, fill = 0)%>% mutate(TA = 7*(3*walk/60 + 6*cycle/60))
-
-TA.df <- TA.df %>% filter(TA != 0 & !is.na(COUNTYNAME)) %>% group_by(COUNTYNAME) %>% summarise(meanTA = mean(TA), sdTA = sd(TA))
-
-full_join(TA.df, n.df, by = "COUNTYNAME") %>%
-    ggplot(aes(x = COUNTYNAME, y = meanTA, fill = COUNTYNAME)) + geom_bar(stat = "identity") +
-    geom_errorbar(aes(ymin = meanTA - 1.96*sdTA/sqrt(n), ymax = meanTA + 1.96*sdTA/sqrt(n))) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-
-```
