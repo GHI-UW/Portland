@@ -7,10 +7,47 @@ library("devtools")
 install("~/ITHIM/")
 library("ITHIM")
 ```
+## July, 2018
+
+```{r Portland1, eval = TRUE, echo = TRUE, results = "show", warning = FALSE, error = TRUE, message = FALSE, fig.width = 12}
+OHAS.list <- readRDS(file = "~/Bullitt/data/OHAS/OHAS.rds")
+
+hhpub <- within(OHAS.list$HH,{
+    houseID <- as.character(SAMPN)
+    location <- as.factor(COUNTYNAME)
+})
+
+hhpub <- hhpub %>% select(houseID, location)
+
+perpub <- within(OHAS.list$PER,{
+    houseID <- as.character(SAMPN)
+    subjectID <- as.character(PERNO)
+    sex <- GEND
+    age <- factor(ifelse(is.na(AGE), NA, ifelse(AGE <= 18, "child", ifelse(AGE <= 65, "adult", "senior"))), levels = c("child","adult","senior"))
+})
+
+perpub <- perpub %>% select(houseID, subjectID, sex, age)
+
+trippub <- within(OHAS.list$TRIP,{
+    houseID <- as.character(SAMPN)
+    subjectID <- as.character(PERNO)
+    duration <- as.numeric(TRPDUR)
+    mode <- factor(ifelse(is.na(MODE), NA, ifelse(MODE == 1, "walk", ifelse(MODE==2, "cycle", "other"))))
+
+})
+
+trippub <- trippub %>% select(houseID, subjectID, duration, mode)
+
+Portland <- new("TravelSurvey", house = hhpub, person = perpub, trip = trippub)
+saveRDS(Portland, file = "~/Portland/R/data/Portland.ts.rds")
+
+```
+
+
 
 ## May, 2018
 
-```{r TA, echo = TRUE}
+```{r TA, echo = FALSE, eval = FALSE}
 OHAS.df <- readRDS(file = "~/Bullitt/data/OHAS/OHAS.df.rds")
 OHAS.list <- readRDS(file = "~/Bullitt/data/OHAS/OHAS.rds")
 n.df <- inner_join(OHAS.list$PER,OHAS.list$HH,by = "SAMPN") %>% filter(!is.na(COUNTYNAME)) %>% select(SAMPN, COUNTYNAME) %>% group_by(COUNTYNAME) %>% summarise(n = n())
@@ -36,7 +73,7 @@ CRA.df <- CRA("./data/activity.portland.baseline.csv","./data/activity.portland.
 
 ```
 
-```{r fig1, echo = TRUE}
+```{r fig1, echo = FALSE, eval = FALSE}
 full_join(
     p0.df,
     n.df ) %>%
@@ -45,21 +82,21 @@ full_join(
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
-```{r fig2, echo = TRUE}
+```{r fig2, echo = FALSE, eval = FALSE}
 full_join(activity.df, n.df, by = "COUNTYNAME") %>%
     ggplot(aes(x = COUNTYNAME, y = meanTA, fill = COUNTYNAME)) + geom_bar(stat = "identity") +
     geom_errorbar(aes(ymin = meanTA - 1.96*sdTA/sqrt(n), ymax = meanTA + 1.96*sdTA/sqrt(n))) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
 
-```{r fig3, echo = TRUE}
+```{r fig3, echo = FALSE, eval = FALSE}
 full_join(activity.df, n.df, by = "COUNTYNAME") %>%
     ggplot(aes(x = COUNTYNAME, y = meanlogTA, fill = COUNTYNAME)) + geom_bar(stat = "identity") +
     geom_errorbar(aes(ymin = meanlogTA - 1.96*sdlogTA/sqrt(n), ymax = meanlogTA + 1.96*sdlogTA/sqrt(n))) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 ```
-```{r fig4, echo = TRUE, fig.width = 12}
+```{r fig4, echo = FALSE, eval = FALSE, fig.width = 12}
 parameters.df %>% ggplot(aes(x = sdlog, y = meanlog, size = 1-p0, label = group)) + geom_point()  + geom_text(aes(label = group), hjust=0, vjust=0)
 data.frame(county = rownames(CRA.df), CRA.df) %>% gather("leisureActivity", "level", 2:4) %>% ggplot(aes(x = county, y = -level, fill = leisureActivity)) + geom_bar(stat = "identity", position = "dodge")
 ```
@@ -67,7 +104,7 @@ data.frame(county = rownames(CRA.df), CRA.df) %>% gather("leisureActivity", "lev
 ## Appendix
 ### ITHIM-R Implementation (January, 2018)
 This is the code that mimics Excel.  The devel branch.
-```{r, files, echo = TRUE, eval = FALSE}
+```{r, files, echo = FALSE, eval = FALSE, eval = FALSE}
 activeTransportFile <- system.file("activeTravelOHAS.csv", package = "ITHIM")
 GBDFile <- system.file("gdb_MetroMPA_Final_01262018.csv", package = "ITHIM")
 FFile <- system.file("F.portland.11_21_2017.csv", package = "ITHIM")
@@ -112,7 +149,7 @@ write.csv(results.df, file = "./results.csv", quote = FALSE, row.names = FALSE)
 
 ### Compare to Excel workbook
 
-```{r results, echo = TRUE, eval = FALSE}
+```{r results, echo = FALSE, eval = FALSE, eval = FALSE}
 results.df %>% filter(vision == "ITHIM.2040.strategic" & disease == "Dementia" & burdenType == "daly" & sex == "F")
 ```
 
