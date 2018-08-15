@@ -5,3 +5,10 @@ figure/
 .Rhistory
 *.csv
 archive/
+*.md
+.DS_Store
+!README.md
+.Rhistory
+*\.\#*
+data/
+log/

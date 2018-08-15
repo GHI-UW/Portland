@@ -32,7 +32,7 @@ trippub <- within(OHAS.list$TRIP,{
     houseID <- as.character(SAMPN)
     subjectID <- as.character(PERNO)
     duration <- as.numeric(TRPDUR)
-    mode <- factor(ifelse(is.na(MODE), NA, ifelse(MODE == 1, "walk", ifelse(MODE==2, "cycle", "other"))))
+    mode <- factor(ifelse(is.na(MODE), NA, ifelse(MODE == 1, "walk", ifelse(MODE==2, "cycle", "other"))), levels = c("walk","cycle","other"))
 
 })
 
